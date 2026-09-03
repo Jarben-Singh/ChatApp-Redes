@@ -1,0 +1,27 @@
+{
+  "name": "chatapp-redes",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c green,cyan \"npm:server\" \"npm:web\"",
+    "web": "vite",
+    "server": "node server/index.js",
+    "build": "vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "concurrently": "^9.2.4",
+    "oxlint": "^1.79.0",
+    "vite": "^8.2.2"
+  }
+}

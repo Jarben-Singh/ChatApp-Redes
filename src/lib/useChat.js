@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * - En dev usamos el proxy de Vite (/ws) para servir todo desde un mismo origen.
  * - Se puede sobrescribir con VITE_WS_URL para apuntar a otro host.
  */
-function resolveWsUrl() {
+function resolveWsUrl(explicitUrl) {
+  if (explicitUrl) return explicitUrl
   if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL
   const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
   return `${proto}://${window.location.host}/ws`
@@ -13,8 +14,8 @@ function resolveWsUrl() {
 
 const TYPING_TIMEOUT = 2500
 
-export function useChat() {
-  const [status, setStatus] = useState('connecting') // connecting | online | offline
+export function useChat({ enabled = false, wsUrl = null } = {}) {
+  const [status, setStatus] = useState(enabled ? 'connecting' : 'idle') // idle | connecting | online | offline
   const [me, setMe] = useState(null)
   const [username, setUsername] = useState(null)
   const [messages, setMessages] = useState([])
@@ -45,6 +46,12 @@ export function useChat() {
 
   useEffect(() => {
     let disposed = false
+
+    if (!enabled) {
+      return () => {
+        disposed = true
+      }
+    }
 
     function handleMessage(event) {
       let msg
@@ -114,7 +121,7 @@ export function useChat() {
 
     function connect() {
       setStatus('connecting')
-      const ws = new WebSocket(resolveWsUrl())
+      const ws = new WebSocket(resolveWsUrl(wsUrl))
       socketRef.current = ws
 
       ws.addEventListener('open', () => {
@@ -146,9 +153,15 @@ export function useChat() {
       if (reconnectRef.current) clearTimeout(reconnectRef.current)
       for (const timer of typingTimers.values()) clearTimeout(timer)
       typingTimers.clear()
-      socketRef.current?.close()
+      const socket = socketRef.current
+      socketRef.current = null
+      if (socket?.readyState === WebSocket.OPEN) {
+        socket.close()
+      } else if (socket?.readyState === WebSocket.CONNECTING) {
+        socket.addEventListener('open', () => socket.close(), { once: true })
+      }
     }
-  }, [addSystem, clearTypingUser])
+  }, [addSystem, clearTypingUser, enabled, wsUrl])
 
   const join = useCallback((name) => {
     const clean = name.trim().slice(0, 32)

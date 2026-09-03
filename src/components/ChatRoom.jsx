@@ -33,7 +33,7 @@ function Avatar({ name }) {
   )
 }
 
-export function ChatRoom({ chat }) {
+export function ChatRoom({ chat, port }) {
   const { status, me, username, messages, users, typingUsers, sendMessage, notifyTyping } = chat
   const [draft, setDraft] = useState('')
   const scrollRef = useRef(null)
@@ -88,7 +88,7 @@ export function ChatRoom({ chat }) {
         <header className="room__header">
           <div>
             <h2 className="room__title">Sala general</h2>
-            <p className="room__meta">Conectado como {username}</p>
+            <p className="room__meta">Conectado como {username} · Puerto {port}</p>
           </div>
         </header>
 

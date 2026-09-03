@@ -46,28 +46,7 @@ export function useChat() {
   useEffect(() => {
     let disposed = false
 
-    function connect() {
-      setStatus('connecting')
-      const ws = new WebSocket(resolveWsUrl())
-      socketRef.current = ws
-
-      ws.addEventListener('open', () => {
-        setStatus('online')
-        if (usernameRef.current) {
-          ws.send(JSON.stringify({ type: 'join', username: usernameRef.current }))
-        }
-      })
-
-      ws.addEventListener('close', () => {
-        socketRef.current = null
-        if (disposed) return
-        setStatus('offline')
-        reconnectRef.current = setTimeout(connect, 1500)
-      })
-
-      ws.addEventListener('error', () => ws.close())
-
-      ws.addEventListener('message', (event) => {
+    function handleMessage(event) {
       let msg
       try {
         msg = JSON.parse(event.data)
@@ -123,8 +102,33 @@ export function useChat() {
 
         default:
           break
+      }
+    }
+
+    function connect() {
+      setStatus('connecting')
+      const ws = new WebSocket(resolveWsUrl())
+      socketRef.current = ws
+
+      ws.addEventListener('open', () => {
+        if (disposed || socketRef.current !== ws) return
+        setStatus('online')
+        if (usernameRef.current) {
+          ws.send(JSON.stringify({ type: 'join', username: usernameRef.current }))
         }
       })
+
+      ws.addEventListener('close', () => {
+        // Ignora eventos de un socket que ya fue reemplazado (p. ej. el
+        // doble montaje de StrictMode en desarrollo).
+        if (socketRef.current === ws) socketRef.current = null
+        if (disposed || socketRef.current) return
+        setStatus('offline')
+        reconnectRef.current = setTimeout(connect, 1500)
+      })
+
+      ws.addEventListener('error', () => ws.close())
+      ws.addEventListener('message', handleMessage)
     }
 
     connect()

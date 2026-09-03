@@ -57,6 +57,13 @@ export function useChat() {
       switch (msg.type) {
         case 'welcome':
           setMe(msg.id)
+          // El servidor está listo para esta conexión: si ya elegimos
+          // nombre (carga normal o reconexión), (re)entramos a la sala.
+          if (usernameRef.current && socketRef.current?.readyState === WebSocket.OPEN) {
+            socketRef.current.send(
+              JSON.stringify({ type: 'join', username: usernameRef.current }),
+            )
+          }
           break
 
         case 'presence':

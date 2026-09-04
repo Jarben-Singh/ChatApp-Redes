@@ -21,9 +21,11 @@ export function useChat({ enabled = false, wsUrl = null } = {}) {
   const [messages, setMessages] = useState([])
   const [users, setUsers] = useState([])
   const [typingUsers, setTypingUsers] = useState([])
+  const [error, setError] = useState('')
 
   const socketRef = useRef(null)
   const usernameRef = useRef(null)
+  const roomIdRef = useRef(null)
   const reconnectRef = useRef(null)
   const typingTimersRef = useRef(new Map())
   const lastTypingSentRef = useRef(0)
@@ -64,11 +66,9 @@ export function useChat({ enabled = false, wsUrl = null } = {}) {
       switch (msg.type) {
         case 'welcome':
           setMe(msg.id)
-          // El servidor está listo para esta conexión: si ya elegimos
-          // nombre (carga normal o reconexión), (re)entramos a la sala.
-          if (usernameRef.current && socketRef.current?.readyState === WebSocket.OPEN) {
+          if (usernameRef.current && roomIdRef.current && socketRef.current?.readyState === WebSocket.OPEN) {
             socketRef.current.send(
-              JSON.stringify({ type: 'join', username: usernameRef.current }),
+              JSON.stringify({ type: 'join', username: usernameRef.current, roomId: roomIdRef.current }),
             )
           }
           break
@@ -94,6 +94,16 @@ export function useChat({ enabled = false, wsUrl = null } = {}) {
 
         case 'system':
           addSystem(msg.text)
+          break
+
+        case 'error':
+          setError(msg.text)
+          setUsername(null)
+          setMe(null)
+          setMessages([])
+          setUsers([])
+          setTypingUsers([])
+          setStatus('idle')
           break
 
         case 'typing': {
@@ -127,14 +137,12 @@ export function useChat({ enabled = false, wsUrl = null } = {}) {
       ws.addEventListener('open', () => {
         if (disposed || socketRef.current !== ws) return
         setStatus('online')
-        if (usernameRef.current) {
-          ws.send(JSON.stringify({ type: 'join', username: usernameRef.current }))
+        if (usernameRef.current && roomIdRef.current) {
+          ws.send(JSON.stringify({ type: 'join', username: usernameRef.current, roomId: roomIdRef.current }))
         }
       })
 
       ws.addEventListener('close', () => {
-        // Ignora eventos de un socket que ya fue reemplazado (p. ej. el
-        // doble montaje de StrictMode en desarrollo).
         if (socketRef.current === ws) socketRef.current = null
         if (disposed || socketRef.current) return
         setStatus('offline')
@@ -163,30 +171,69 @@ export function useChat({ enabled = false, wsUrl = null } = {}) {
     }
   }, [addSystem, clearTypingUser, enabled, wsUrl])
 
-  const join = useCallback((name) => {
+  const createRoom = useCallback((name, roomId) => {
     const clean = name.trim().slice(0, 32)
-    if (!clean) return
+    const cleanRoomId = String(roomId ?? '').trim().toUpperCase().slice(0, 8)
+    if (!clean || !cleanRoomId) return
+    setError('')
     usernameRef.current = clean
+    roomIdRef.current = cleanRoomId
     setUsername(clean)
     if (socketRef.current?.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify({ type: 'join', username: clean }))
+      socketRef.current.send(JSON.stringify({ type: 'create-room', username: clean, roomId: cleanRoomId }))
+    }
+  }, [])
+
+  const join = useCallback((name, roomId) => {
+    const clean = name.trim().slice(0, 32)
+    const cleanRoomId = String(roomId ?? '').trim().toUpperCase().slice(0, 8)
+    if (!clean || !cleanRoomId) return
+    setError('')
+    usernameRef.current = clean
+    roomIdRef.current = cleanRoomId
+    setUsername(clean)
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: 'join', username: clean, roomId: cleanRoomId }))
+    }
+  }, [])
+
+  const leave = useCallback(() => {
+    usernameRef.current = null
+    roomIdRef.current = null
+    setError('')
+    setUsername(null)
+    setMe(null)
+    setMessages([])
+    setUsers([])
+    setTypingUsers([])
+    setStatus('idle')
+
+    if (reconnectRef.current) {
+      clearTimeout(reconnectRef.current)
+      reconnectRef.current = null
+    }
+
+    const socket = socketRef.current
+    socketRef.current = null
+    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+      socket.close()
     }
   }, [])
 
   const sendMessage = useCallback((text) => {
     const clean = text.trim()
-    if (!clean || socketRef.current?.readyState !== WebSocket.OPEN) return
-    socketRef.current.send(JSON.stringify({ type: 'message', text: clean }))
-    socketRef.current.send(JSON.stringify({ type: 'typing', isTyping: false }))
+    if (!clean || socketRef.current?.readyState !== WebSocket.OPEN || !roomIdRef.current) return
+    socketRef.current.send(JSON.stringify({ type: 'message', text: clean, roomId: roomIdRef.current }))
+    socketRef.current.send(JSON.stringify({ type: 'typing', isTyping: false, roomId: roomIdRef.current }))
     lastTypingSentRef.current = 0
   }, [])
 
   const notifyTyping = useCallback(() => {
     const ws = socketRef.current
-    if (ws?.readyState !== WebSocket.OPEN) return
+    if (ws?.readyState !== WebSocket.OPEN || !roomIdRef.current) return
     const now = Date.now()
     if (now - lastTypingSentRef.current > TYPING_TIMEOUT / 2) {
-      ws.send(JSON.stringify({ type: 'typing', isTyping: true }))
+      ws.send(JSON.stringify({ type: 'typing', isTyping: true, roomId: roomIdRef.current }))
       lastTypingSentRef.current = now
     }
   }, [])
@@ -198,7 +245,10 @@ export function useChat({ enabled = false, wsUrl = null } = {}) {
     messages,
     users,
     typingUsers: typingUsers.filter((u) => u.from !== me),
+    error,
+    createRoom,
     join,
+    leave,
     sendMessage,
     notifyTyping,
   }

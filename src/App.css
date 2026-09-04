@@ -46,6 +46,47 @@
   font-size: 14px;
 }
 
+.join__error {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(185, 28, 28, 0.08);
+  border: 1px solid rgba(185, 28, 28, 0.25);
+  color: #991b1b;
+  font-size: 12px;
+  text-align: left;
+}
+
+.share-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: 12px;
+  text-align: left;
+}
+
+.share-box__label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.share-box__value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent-strong);
+  word-break: break-word;
+}
+
+.share-box__meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .mode-switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -116,6 +157,16 @@
 
 .btn--primary:hover:not(:disabled) {
   background: var(--accent-strong);
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.btn--ghost:hover {
+  background: var(--surface-alt);
 }
 
 .btn:disabled {
@@ -244,6 +295,10 @@
 }
 
 .room__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 14px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
@@ -258,6 +313,17 @@
   margin: 2px 0 0;
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.room__code {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.room__code strong {
+  color: var(--accent-strong);
+  font-size: 13px;
 }
 
 .messages {
